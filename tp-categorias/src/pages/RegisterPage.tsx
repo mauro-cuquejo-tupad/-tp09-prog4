@@ -45,7 +45,7 @@ export const RegisterPage: React.FC = () => {
             Crear Cuenta
           </h2>
           <p className="mt-2 text-center text-sm text-slate-600">
-            Registrate para acceder al catálogo gastronómico
+            Registrate para acceder a FoodStore
           </p>
         </div>
 
