@@ -7,13 +7,6 @@ Content-Type: application/x-www-form-urlencoded
 
 username=admin@foodstore.com&password=Admin1234!
 
-### 1. Iniciar sesión como Usuario Regular
-# @name loginUser
-POST {{baseUrl}}/api/v1/auth/token
-Content-Type: application/x-www-form-urlencoded
-
-username=juan@foodstore.com&password=Juan1234!
-
 ### 2. Listar formas de pago de catálogo
 GET {{baseUrl}}/pedidos/catalogos/formas-pago
 
