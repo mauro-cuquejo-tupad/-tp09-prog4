@@ -16,6 +16,11 @@ class PedidoRepository(BaseRepository[Pedido]):
         statement = select(Pedido).where(Pedido.deleted_at.is_(None)).offset(skip).limit(limit)
         return list(self.session.exec(statement).all())
 
+    def save(self, pedido: Pedido) -> Pedido:
+        self.session.add(pedido)
+        self.session.flush()
+        return pedido
+
     def soft_delete(self, pedido: Pedido) -> None:
         pedido.deleted_at = datetime.now(timezone.utc)
         self.session.add(pedido)
