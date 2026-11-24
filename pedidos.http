@@ -1,162 +1,63 @@
-@baseUrl = http://localhost:8000
+@baseUrl = http://127.0.0.1:8000
 
-# Archivo de pruebas con REST Client para el módulo de Pedidos
-# Se consulta primero el listado de productos existentes para obtener sus IDs dinámicamente.
-# Ejecutar las peticiones en orden, de arriba hacia abajo.
+### 0. Iniciar sesión como Administrador
+# @name loginAdmin
+POST {{baseUrl}}/api/v1/auth/token
+Content-Type: application/x-www-form-urlencoded
 
-### 1. Obtener productos existentes (funciona tanto con datos de seed como con productos creados)
-# @name productos
-GET {{baseUrl}}/productos/
-Accept: application/json
+username=admin@foodstore.com&password=Admin1234!
 
-### 2. Crear pedido con dos detalles - 201
-# @name pedido1
-POST {{baseUrl}}/pedidos
+### 1. Iniciar sesión como Usuario Regular
+# @name loginUser
+POST {{baseUrl}}/api/v1/auth/token
+Content-Type: application/x-www-form-urlencoded
+
+username=juan@foodstore.com&password=Juan1234!
+
+### 2. Listar formas de pago de catálogo
+GET {{baseUrl}}/pedidos/catalogos/formas-pago
+
+### 3. Listar estados de pedido de catálogo
+GET {{baseUrl}}/pedidos/catalogos/estados-pedido
+
+### 4. Crear dirección de entrega
+POST {{baseUrl}}/pedidos/direcciones
 Content-Type: application/json
 
 {
-  "detalles": [
-    { "producto_id": {{productos.response.body.$[0].id}}, "cantidad": 1 },
-    { "producto_id": {{productos.response.body.$[1].id}}, "cantidad": 2 }
-  ]
+  "calle": "Av. Corrientes",
+  "numero": "1234",
+  "piso_depto": "4B",
+  "ciudad": "CABA",
+  "codigo_postal": "1043"
 }
 
-### 3. Crear pedido con un solo detalle - 201
-# @name pedido2
-POST {{baseUrl}}/pedidos
-Content-Type: application/json
+### 5. Listar direcciones del usuario autenticado
+GET {{baseUrl}}/pedidos/direcciones
 
-{
-  "detalles": [
-    { "producto_id": {{productos.response.body.$[0].id}}, "cantidad": 3 }
-  ]
-}
-
-### 4. Error 422: Crear pedido con la lista de detalles vacía (RN-12)
-POST {{baseUrl}}/pedidos
-Content-Type: application/json
-
-{
-  "detalles": []
-}
-
-### 5. Error 422: Crear pedido sin el campo detalles
-POST {{baseUrl}}/pedidos
-Content-Type: application/json
-
-{}
-
-### 6. Error 422: Crear pedido con cantidad 0 (< 1)
-POST {{baseUrl}}/pedidos
-Content-Type: application/json
-
-{
-  "detalles": [
-    { "producto_id": {{productos.response.body.$[0].id}}, "cantidad": 0 }
-  ]
-}
-
-### 7. Error 422: Crear pedido con un mismo producto repetido (RN-12)
-POST {{baseUrl}}/pedidos
-Content-Type: application/json
-
-{
-  "detalles": [
-    { "producto_id": {{productos.response.body.$[0].id}}, "cantidad": 1 },
-    { "producto_id": {{productos.response.body.$[0].id}}, "cantidad": 2 }
-  ]
-}
-
-### 8. Error 404: Crear pedido con un producto inexistente (demuestra rollback atómico en UoW)
-# El primer detalle es válido, pero al fallar el segundo detalle el Unit of Work revierte toda la transacción
-POST {{baseUrl}}/pedidos
-Content-Type: application/json
-
-{
-  "detalles": [
-    { "producto_id": {{productos.response.body.$[0].id}}, "cantidad": 1 },
-    { "producto_id": 999999, "cantidad": 1 }
-  ]
-}
-
-### 9. Listar pedidos - 200 (el pedido fallido del caso 8 no figura)
+### 6. Listar pedidos
 GET {{baseUrl}}/pedidos
-Accept: application/json
 
-### 10. Detalle del pedido 1 con sus detalles - 200
-GET {{baseUrl}}/pedidos/{{pedido1.response.body.$.id}}
-Accept: application/json
+### 7. Crear pedido
+POST {{baseUrl}}/pedidos
+Content-Type: application/json
 
-### 11. Error 404: Detalle de un pedido inexistente (RN-13)
-GET {{baseUrl}}/pedidos/999999
-Accept: application/json
+{
+  "detalles": [
+    {
+      "producto_id": 1,
+      "cantidad": 2
+    }
+  ]
+}
 
-### 12. Error 422: Detalle con id 0 (Path gt=0)
-GET {{baseUrl}}/pedidos/0
-Accept: application/json
-
-### 13. Cambiar el estado del pedido 1 a CONFIRMADO - 200
-PUT {{baseUrl}}/pedidos/{{pedido1.response.body.$.id}}
+### 8. Actualizar estado de pedido
+PUT {{baseUrl}}/pedidos/1
 Content-Type: application/json
 
 {
   "estado": "CONFIRMADO"
 }
 
-### 14. Cambiar el estado del pedido 1 a ENTREGADO - 200
-PUT {{baseUrl}}/pedidos/{{pedido1.response.body.$.id}}
-Content-Type: application/json
-
-{
-  "estado": "ENTREGADO"
-}
-
-### 15. Error 422: Cambiar a un estado fuera de los permitidos
-PUT {{baseUrl}}/pedidos/{{pedido1.response.body.$.id}}
-Content-Type: application/json
-
-{
-  "estado": "EN_CAMINO"
-}
-
-### 16. Error 422: Cambiar a un estado en minúsculas
-PUT {{baseUrl}}/pedidos/{{pedido1.response.body.$.id}}
-Content-Type: application/json
-
-{
-  "estado": "pendiente"
-}
-
-### 17. Error 404: Cambiar el estado de un pedido inexistente (RN-13)
-PUT {{baseUrl}}/pedidos/999999
-Content-Type: application/json
-
-{
-  "estado": "CANCELADO"
-}
-
-### 18. Borrado lógico del pedido 2 - 204
-DELETE {{baseUrl}}/pedidos/{{pedido2.response.body.$.id}}
-
-### 19. Error 404: Ver el pedido 2 eliminado (RN-13)
-GET {{baseUrl}}/pedidos/{{pedido2.response.body.$.id}}
-Accept: application/json
-
-### 20. Error 404: Cambiar el estado del pedido 2 eliminado (RN-13)
-PUT {{baseUrl}}/pedidos/{{pedido2.response.body.$.id}}
-Content-Type: application/json
-
-{
-  "estado": "CANCELADO"
-}
-
-### 21. Error 404: Eliminar otra vez el pedido 2 (RN-13)
-DELETE {{baseUrl}}/pedidos/{{pedido2.response.body.$.id}}
-
-### 22. Listar pedidos - 200 (el pedido 2 ya no aparece en el listado activo)
-GET {{baseUrl}}/pedidos
-Accept: application/json
-
-### 23. Error 409: Eliminar un producto que figura en un pedido existente
-# El producto del índice 0 está en el pedido 1: la clave foránea impide borrarlo y el backend responde 409
-DELETE {{baseUrl}}/productos/{{productos.response.body.$[0].id}}
+### 9. Eliminar pedido (Borrado lógico, responde 204)
+DELETE {{baseUrl}}/pedidos/1

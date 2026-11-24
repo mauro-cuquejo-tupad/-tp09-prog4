@@ -106,11 +106,10 @@ export const AdminUsersPage: React.FC = () => {
                           {u.roles.map((rol) => (
                             <span
                               key={rol}
-                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                rol === "admin"
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${rol === "admin"
                                   ? "bg-purple-100 text-purple-800"
                                   : "bg-blue-100 text-blue-800"
-                              }`}
+                                }`}
                             >
                               {rol}
                             </span>
