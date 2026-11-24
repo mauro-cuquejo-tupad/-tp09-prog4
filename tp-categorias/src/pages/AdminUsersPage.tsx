@@ -1,13 +1,16 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance } from "../api/axiosInstance";
-import type { UsuarioAuth } from "../types/auth.types";
+import { getUsuarios, activarUsuario, desactivarUsuario } from "../services/usuarios";
+import type { UsuarioAdmin } from "../types/auth.types";
 import { LoadingState, ErrorState, EmptyState } from "../components/StatusStates";
 import { ConfirmModal } from "../components/FeedbackModals";
+import { useAuthStore } from "../store/authStore";
+import { handleApiError } from "../api/handleApiError";
 
 export const AdminUsersPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [selectedUser, setSelectedUser] = useState<UsuarioAuth | null>(null);
+  const currentUser = useAuthStore((s) => s.user);
+  const [selectedUser, setSelectedUser] = useState<UsuarioAdmin | null>(null);
   const [actionType, setActionType] = useState<"activar" | "desactivar" | null>(null);
 
   const {
@@ -16,22 +19,26 @@ export const AdminUsersPage: React.FC = () => {
     isError,
     error,
     refetch,
-  } = useQuery<UsuarioAuth[]>({
+  } = useQuery<UsuarioAdmin[]>({
     queryKey: ["adminUsers"],
-    queryFn: async () => {
-      const res = await axiosInstance.get<UsuarioAuth[]>("/api/v1/auth/admin/usuarios");
-      return res.data;
-    },
+    queryFn: getUsuarios,
   });
 
   const toggleUserMutation = useMutation({
     mutationFn: async ({ id, action }: { id: number; action: "activar" | "desactivar" }) => {
-      await axiosInstance.post(`/api/v1/auth/admin/usuarios/${id}/${action}`);
+      if (action === "activar") {
+        await activarUsuario(id);
+      } else {
+        await desactivarUsuario(id);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
       setSelectedUser(null);
       setActionType(null);
+    },
+    onError: (err: unknown) => {
+      alert(handleApiError(err));
     },
   });
 
@@ -84,7 +91,8 @@ export const AdminUsersPage: React.FC = () => {
               </thead>
               <tbody className="bg-white divide-y divide-slate-200">
                 {usuarios.map((u) => {
-                  const estaActivo = !u.deleted_at;
+                  const estaActivo = u.deleted_at === null || u.deleted_at === undefined;
+                  const esYoMismo = u.id === currentUser?.id;
                   return (
                     <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">
@@ -121,7 +129,11 @@ export const AdminUsersPage: React.FC = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                        {estaActivo ? (
+                        {esYoMismo ? (
+                          <span className="text-xs text-slate-400 font-medium italic">
+                            (sesión actual)
+                          </span>
+                        ) : estaActivo ? (
                           <button
                             type="button"
                             onClick={() => {

@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "@tanstack/react-form";
-import { useAuthStore } from "../store/authStore";
+import { requestRegister } from "../services/auth";
+import { handleApiError } from "../api/handleApiError";
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { register, isSubmitting } = useAuthStore();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -18,8 +19,9 @@ export const RegisterPage: React.FC = () => {
     },
     onSubmit: async ({ value }) => {
       setErrorMsg(null);
+      setIsSubmitting(true);
       try {
-        await register({
+        await requestRegister({
           nombre: value.nombre.trim(),
           apellido: value.apellido.trim(),
           email: value.email.trim(),
@@ -27,8 +29,10 @@ export const RegisterPage: React.FC = () => {
           password: value.password,
         });
         navigate("/login");
-      } catch (err: any) {
-        setErrorMsg(err.message || "Error al registrar cuenta");
+      } catch (err: unknown) {
+        setErrorMsg(handleApiError(err));
+      } finally {
+        setIsSubmitting(false);
       }
     },
   });

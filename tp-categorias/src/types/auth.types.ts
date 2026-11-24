@@ -10,14 +10,21 @@ export interface UsuarioAuth {
   roles: string[];
 }
 
-export interface LoginResponse {
-  mensaje: string;
-}
-
 export interface RegisterFormData {
   nombre: string;
   apellido: string;
   email: string;
   celular?: string;
   password: string;
+}
+
+export interface UsuarioAdmin {
+  id: number;
+  nombre: string;
+  apellido: string;
+  email: string;
+  celular: string | null;
+  roles: string[];
+  deleted_at?: string | null;
+  activo?: boolean;
 }

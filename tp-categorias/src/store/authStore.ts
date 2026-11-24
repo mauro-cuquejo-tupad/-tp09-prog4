@@ -1,7 +1,8 @@
+import axios from "axios";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { UsuarioAuth, RegisterFormData } from "../types/auth.types";
-import { axiosInstance } from "../api/axiosInstance";
+import type { UsuarioAuth } from "../types/auth.types";
+import { requestLogin, requestLogout, requestMe } from "../services/auth";
 
 interface AuthState {
   user: UsuarioAuth | null;
@@ -9,10 +10,16 @@ interface AuthState {
   isSubmitting: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterFormData) => Promise<void>;
   checkSession: () => Promise<void>;
   logout: () => Promise<void>;
 }
+
+const mensajeDeError = (e: unknown): string => {
+  if (axios.isAxiosError(e) && typeof e.response?.data?.detail === "string") {
+    return e.response.data.detail;
+  }
+  return "Credenciales incorrectas";
+};
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -25,36 +32,12 @@ export const useAuthStore = create<AuthState>()(
       login: async (email: string, password: string) => {
         set({ isSubmitting: true, error: null });
         try {
-          const formData = new URLSearchParams();
-          formData.append("username", email);
-          formData.append("password", password);
-
-          await axiosInstance.post("/api/v1/auth/token", formData, {
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-          });
-
-          const meRes = await axiosInstance.get<UsuarioAuth>("/api/v1/auth/me");
-          set({ user: meRes.data, error: null });
-        } catch (err: any) {
-          const detail = err.response?.data?.detail;
-          const msg = typeof detail === "string" ? detail : "Credenciales incorrectas";
+          await requestLogin(email, password);
+          const usuario = await requestMe();
+          set({ user: usuario, error: null });
+        } catch (err: unknown) {
+          const msg = mensajeDeError(err);
           set({ user: null, error: msg });
-          throw new Error(msg);
-        } finally {
-          set({ isSubmitting: false });
-        }
-      },
-
-      register: async (data: RegisterFormData) => {
-        set({ isSubmitting: true, error: null });
-        try {
-          await axiosInstance.post("/api/v1/auth/register", data);
-        } catch (err: any) {
-          const detail = err.response?.data?.detail;
-          const msg = typeof detail === "string" ? detail : "Error al registrar usuario";
-          set({ error: msg });
           throw new Error(msg);
         } finally {
           set({ isSubmitting: false });
@@ -63,8 +46,8 @@ export const useAuthStore = create<AuthState>()(
 
       checkSession: async () => {
         try {
-          const res = await axiosInstance.get<UsuarioAuth>("/api/v1/auth/me");
-          set({ user: res.data });
+          const usuario = await requestMe();
+          set({ user: usuario });
         } catch {
           set({ user: null });
         } finally {
@@ -74,7 +57,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         try {
-          await axiosInstance.post("/api/v1/auth/logout");
+          await requestLogout();
         } finally {
           set({ user: null, error: null });
         }
@@ -87,3 +70,6 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+export const useEsAdmin = () =>
+  useAuthStore((s) => s.user?.roles?.includes("admin") ?? false);
