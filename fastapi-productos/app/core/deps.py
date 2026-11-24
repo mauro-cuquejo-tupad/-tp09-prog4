@@ -22,9 +22,12 @@ class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
 
 oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/api/v1/auth/token")
 
+def get_usuario_service(uow: Annotated[UnitOfWork, Depends(get_uow)]) -> UsuarioService:
+    return UsuarioService(uow)
+
 async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
-    uow: Annotated[UnitOfWork, Depends(get_uow)],
+    service: Annotated[UsuarioService, Depends(get_usuario_service)],
 ) -> UserPublic:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -39,12 +42,10 @@ async def get_current_user(
     if email is None:
         raise credentials_exception
 
-    with uow:
-        service = UsuarioService(uow)
-        user = service.get_public_user_by_email(email)
-        if user is None:
-            raise credentials_exception
-        return user
+    user = service.get_public_user_by_email(email)
+    if user is None:
+        raise credentials_exception
+    return user
 
 async def get_current_active_user(
     current_user: Annotated[UserPublic, Depends(get_current_user)],
@@ -60,7 +61,6 @@ def require_role(allowed_roles: List[str]):
     async def role_checker(
         current_user: Annotated[UserPublic, Depends(get_current_active_user)],
     ) -> UserPublic:
-        # Verificar si el usuario tiene al menos uno de los roles vigentes requeridos
         has_role = any(r in allowed_roles for r in current_user.roles)
         if not has_role:
             raise HTTPException(

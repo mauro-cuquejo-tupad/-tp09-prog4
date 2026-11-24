@@ -1,41 +1,39 @@
 from typing import Annotated, List
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from app.core.config import settings
-from app.core.deps import get_current_active_user, require_role
-from app.core.uow import UnitOfWork, get_uow
+from app.core.deps import get_current_active_user, require_role, get_usuario_service
 from app.modules.usuarios.schemas import UserCreate, UserPublic
 from app.modules.usuarios.service import UsuarioService
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
+ServicioUsuario = Annotated[UsuarioService, Depends(get_usuario_service)]
+SoloAdmin = Annotated[UserPublic, Depends(require_role(["admin"]))]
+
 @router.post("/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
 def register(
     data: UserCreate,
-    uow: Annotated[UnitOfWork, Depends(get_uow)]
+    service: ServicioUsuario,
 ):
-    with uow:
-        service = UsuarioService(uow)
-        return service.register(data)
+    return service.register(data)
 
 @router.post("/token")
 def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    uow: Annotated[UnitOfWork, Depends(get_uow)],
+    service: ServicioUsuario,
     response: Response,
 ):
-    with uow:
-        service = UsuarioService(uow)
-        token_str = service.authenticate(form_data.username, form_data.password)
-        response.set_cookie(
-            key="access_token",
-            value=token_str,
-            httponly=True,
-            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            samesite="lax",
-            secure=False,
-        )
-        return {"mensaje": "Login exitoso. Sesión iniciada."}
+    token_str = service.authenticate(form_data.username, form_data.password)
+    response.set_cookie(
+        key="access_token",
+        value=token_str,
+        httponly=True,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        samesite="lax",
+        secure=False,
+    )
+    return {"mensaje": "Login exitoso. Sesión iniciada."}
 
 @router.post("/logout")
 def logout(response: Response):
@@ -54,29 +52,23 @@ def get_me(
 
 @router.get("/admin/usuarios", response_model=List[UserPublic])
 def list_usuarios_admin(
-    _admin: Annotated[UserPublic, Depends(require_role(["admin"]))],
-    uow: Annotated[UnitOfWork, Depends(get_uow)],
+    _admin: SoloAdmin,
+    service: ServicioUsuario,
 ):
-    with uow:
-        service = UsuarioService(uow)
-        return service.list_all_admin()
+    return service.list_all_admin()
 
 @router.post("/admin/usuarios/{id}/activar", response_model=UserPublic)
 def activar_usuario(
     id: int,
-    _admin: Annotated[UserPublic, Depends(require_role(["admin"]))],
-    uow: Annotated[UnitOfWork, Depends(get_uow)],
+    _admin: SoloAdmin,
+    service: ServicioUsuario,
 ):
-    with uow:
-        service = UsuarioService(uow)
-        return service.activar(id)
+    return service.activar(id)
 
 @router.post("/admin/usuarios/{id}/desactivar", response_model=UserPublic)
 def desactivar_usuario(
     id: int,
-    _admin: Annotated[UserPublic, Depends(require_role(["admin"]))],
-    uow: Annotated[UnitOfWork, Depends(get_uow)],
+    _admin: SoloAdmin,
+    service: ServicioUsuario,
 ):
-    with uow:
-        service = UsuarioService(uow)
-        return service.desactivar(id)
+    return service.desactivar(id)
